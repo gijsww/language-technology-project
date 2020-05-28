@@ -6,7 +6,7 @@ class FeedForwardDecoder(torch.nn.Module):
         super(FeedForwardDecoder, self).__init__()
         self.w1 = torch.nn.Linear(D_in, H)
         self.w2 = torch.nn.Linear(H, D_out)
-        self.activation = torch.nn.functional.relu()
+        self.activation = torch.nn.functional.relu
         
     def forward(self, x):
         x = self.w1(x)

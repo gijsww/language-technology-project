@@ -1,5 +1,5 @@
 import torch
-import encoder, decoder
+from model import encoder, decoder
 
 class GAN(torch.nn.Module):
 
@@ -10,7 +10,7 @@ class GAN(torch.nn.Module):
         hidden = D_out
         
         self.generator = Generator(embedding_dim, hidden, internal_dim)
-        self.discriminator = Discriminator()
+        self.discriminator = Discriminator(embedding_dim,internal_dim,hidden)
         
         self.NLLLoss = torch.nn.NLLLoss()
         
@@ -47,6 +47,10 @@ class Generator(torch.nn.Module):
         super(Generator, self).__init__()
         self.D_out = D_out
         
+        embedding_dim = D_in
+        internal_dim = H
+        hidden = D_out
+
         # Encoders
         self.enc_de = encoder.FeedForwardEncoder(embedding_dim, hidden, internal_dim)
         self.enc_nl = encoder.FeedForwardEncoder(embedding_dim, hidden, internal_dim)
@@ -77,8 +81,8 @@ class Discriminator(torch.nn.Module):
         super(Discriminator, self).__init__()
         self.w1 = torch.nn.Linear(D_in, H)
         self.w2 = torch.nn.Linear(H, D_out)
-        self.activation = torch.nn.functional.relu()
-        self.softmax = torch.nn.softmax(dim=1) # Take SM along dimension=1, whereas dim=0 == Batch-size
+        self.activation = torch.nn.functional.relu
+        self.softmax = torch.nn.Softmax(dim=1) # Take SM along dimension=1, whereas dim=0 == Batch-size
         
         
     def forward(self, x):

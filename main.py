@@ -1,6 +1,9 @@
 import fasttext
 import fasttext.util
+import torch
 from model import gan
+
+print(torch.version.__version__)
 
 dataset_path = './'  # In case dataset is stored somewhere else, e.g. on hard-drive
 
