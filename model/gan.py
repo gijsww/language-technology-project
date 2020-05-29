@@ -10,18 +10,19 @@ class GAN(torch.nn.Module):
         hidden = D_out
         
         self.generator = Generator(embedding_dim, hidden, internal_dim)
-        self.discriminator = Discriminator(embedding_dim,internal_dim,hidden)
+        self.discriminator = Discriminator(embedding_dim, internal_dim, hidden)
         
         self.NLLLoss = torch.nn.NLLLoss()
         
         
-    def forward(self, x):
+    def forward(self, x, x_fake):
         x = self.generator(x)
+        x = torch.cat((x, x_fake), 0)
         x = self.discriminator(x)
         return x
         
         
-    def loss(y_pred, targets):
+    def loss(self, y_pred, targets):
         """
             Loss function according to https://arxiv.org/pdf/1710.04087.pdf
             
@@ -33,11 +34,11 @@ class GAN(torch.nn.Module):
         """
         
         # Loss proportional to discriminator's probability of correctly distinguishing TP and FP
-        loss_dis = self.NLLLoss(nn.log(y_pred), targets) # NLLLoss needs log(prob_distribution)
+        loss_dis = self.NLLLoss(torch.log(y_pred), targets)  # NLLLoss needs log(prob_distribution)
         
         # Loss proportional to discriminator's probability of confusing TP and FP
         targets_inverse = torch.ones(list(targets.shape)[0]) - targets
-        loss_gen = self.NLLLoss(nn.log(y_pred), targets_inverse)
+        loss_gen = self.NLLLoss(torch.log(y_pred), targets_inverse)
         return loss_gen, loss_dis
     
     
