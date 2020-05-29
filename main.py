@@ -30,7 +30,7 @@ languages = {'src': ['de', 'nl'], 'trgt': 'en'}  # Target language to be indicat
 
 def cleaned_vocab(vocab, vocab_size):
     # Remove all punctuation tokens while valid nr of tokens is insufficient yet for having full vocab size
-    # TODO
+    # TODO & possibly reserve testing vocab
 
     # Return clean & restricted vocab
     words = vocab.words[:vocab_size]              # Y (labels)
@@ -55,20 +55,18 @@ def add_lang_to_vocab(lang_type, lang_id, vocab_size, vocabs):
 ### MAIN ###
 
 def main():
-    nr_src_langs = len(languages['src'])
-    nr_trgt_langs = 1
-    num_langs = nr_src_langs + nr_trgt_langs
+    nr_src_langs = len(languages)
     real_label, fake_label = 1, 0
 
     num_minibatches = vocab_size // batch_size
 
     vocabs = {'src': {}, 'trgt': {}}
 
-    # Get source languages
+    # Get source languages vocab
     for language in languages['src']:
         vocabs = add_lang_to_vocab('src', language, vocab_size, vocabs)
 
-    # Get target language
+    # Get target language vocab
     language = languages['trgt']
     vocabs = add_lang_to_vocab('trgt', language, vocab_size, vocabs)
 
@@ -92,10 +90,11 @@ def main():
                                lr=0.001, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
 
     # Train
-    train_loss, eval_loss = [], []
-
+    train_loss_real_d, train_loss_fake_d, train_loss_fake_g = [], [], []
+    eval_loss = [], []
     for epoch in range(epochs):
         print('Epoch ', epoch, '/', epochs)
+        loss_real_d_total, loss_fake_d_total, loss_fake_g_total = 0., 0., 0.
 
         # Shuffle data #
         # Source languages
@@ -105,7 +104,7 @@ def main():
         lang = languages['targt']
         vocabs['trgt'][lang]['x'], vocabs['trgt'][lang]['y'] = shuffle(vocabs['trgt'][lang]['x'], vocabs['trgt'][lang]['y'])
 
-        # Train
+        # Train #
         for batch in range(num_minibatches):
             print('Epoch ', epoch, ', Batch ', batch, '/', num_minibatches)
 
@@ -117,9 +116,11 @@ def main():
             y_pred = net.discriminator(x)
             loss_real = net.loss(y_pred, y_true, 'dis')
             loss_real.backward()
+            loss_real_d_total += loss_real
 
             # One minibatch per source language
             translations = {}
+            loss_fake_batch_avg = 0.
             for language in languages['src']:
                 # All-real minibatch
                 net.discriminator.zero_grad()
@@ -129,26 +130,38 @@ def main():
                 y_true = torch.full((batch_size,), fake_label, device=device)
                 y_pred = net.discriminator(x.detach())      # Detach to avoid computing grads for generator
                 loss_fake = net.loss(y_pred, y_true, 'dis')
+                loss_fake_batch_avg += loss_fake
                 loss_fake.backward()    # Compute gradients only for discriminator
             optim_d.step()              # Weight update
-            # TODO: keep track of loss development
+            loss_fake_d_total += (loss_fake_batch_avg/nr_src_langs)
 
             # Update generator #
             # Compute gradients
+            loss_fake_batch_avg = 0.
             for language in languages['src']:
                 net.generator.encoders[language].zero_grad()
                 x = translations[language]
                 y_true = torch.full((batch_size,), fake_label, device=device)
                 y_pred = net.discriminator(x)
                 loss_fake = net.loss(y_pred, y_true, 'gen')
+                loss_fake_batch_avg += loss_fake
                 loss_fake.backward()
+            loss_fake_g_total += (loss_fake_batch_avg / nr_src_langs)
 
             # TODO: possibly average decoder's gradients
+
             # Perform weight updates
             for language in languages['src']:
                 optims_g[language].step()
 
-        # TODO: Validate
+        # Document accumulated losses per epoch
+        train_loss_real_d.append(loss_real_d_total)
+        train_loss_fake_d.append(loss_fake_d_total)
+        train_loss_fake_g.append(loss_fake_g_total)
+
+        # TODO: evaluation per epoch?
+
+    # TODO: Final evaluation
 
     # TODO: Store model
 
