@@ -7,7 +7,7 @@ from sklearn.utils import shuffle
 
 print(torch.version.__version__)
 
-## Variables
+### VARIABLES & ADMINISTRATIVE STUFF ###
 
 # System
 dataset_path = '/media/daniel/Elements/FastText_Data/'  # In case dataset is stored somewhere else, e.g. on hard-drive
@@ -22,82 +22,136 @@ hidden = 300
 # Train hyperparameters
 epochs = 10
 batch_size = 32
-vocab_size = 200
-languages = ['de', 'nl', 'en']
+vocab_size = 2000
+languages = {'src': ['de', 'nl'], 'trgt': 'en'}  # Target language to be indicated in last position
 
-## Get language data
-vocabs = dict()
-for language in languages:
 
+### FUNCTIONS ###
+
+def cleaned_vocab(vocab, vocab_size):
+    # Remove all punctuation tokens while valid nr of tokens is insufficient yet for having full vocab size
+    # TODO
+
+    # Return clean & restricted vocab
+    words = vocab.words[:vocab_size]              # Y (labels)
+    vects = [vocab[word] for word in words]       # X (input data)
+
+    return vects, words
+
+
+def add_lang_to_vocab(lang_type, lang_id, vocab_size, vocabs):
+    # Get dataset
     if dataset_path == './':
-        fasttext.util.download_model(language)  # Download word embedding vector data if not available
-    vocab = fasttext.load_model(dataset_path + 'cc.' + language + '.300.bin')  # Load language data
+        fasttext.util.download_model(lang_id)  # Download word embedding vector data if not available
+    vocab = fasttext.load_model(dataset_path + 'cc.' + lang_id + '.300.bin')  # Load language data
 
-    # Select vocab -- TODO: possibly filter out non-textual stuff
-    words = vocab.words[:vocab_size]                # Y (labels)
-    subset_x = [vocab[word] for word in words]      # X (input data)
-    vocabs[language] = {'x': subset_x, 'y': words}
+    # Add train data (embedding-vectors) and labels (words) to vocab
+    x, y = cleaned_vocab(vocab, vocab_size)
+    vocabs[lang_type][lang_id] = {'x': torch.tensor(x), 'y': y}
 
-#print(vocabs)
-print('Successfully loaded language models.')
-
-# TODO: Get bilingual dictionary (to at least select a few thousand seed words across languages)
-dicts = dict()
-#...
-
-# Set up model architecture
-gan = gan.GAN(embedding_dim, internal_dim, hidden)
-optimizer = torch.optim.Adam(gan.parameters(), lr=0.001, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
-
-# Train
-train_loss, eval_loss = [], []
-src_1_x, src_1_y = vocabs[languages[0]]['x'], vocabs[languages[0]]['y']
-src_2_x, src_2_y = vocabs[languages[1]]['x'], vocabs[languages[1]]['y']
-targt_x, targt_y = vocabs[languages[2]]['x'], vocabs[languages[2]]['y']
-
-for epoch in range(epochs):
-    # Shuffle data
-    src_1_x, src_1_y = shuffle(src_1_x, src_1_y)
-    src_2_x, src_2_y = shuffle(src_2_x, src_2_y)
-    targt_x, targt_y = shuffle(targt_x, targt_y)
-
-    # Iterate through all mini-batches
-
-    for batch_idx in range((len(src_1_x) + int(math.ceil(batch_size/3)) - 1) // int(math.ceil(batch_size/3))):
-        # TODO: Double-check
-        # Construct mini-batch: [de_embed1, de_embed2,... nl_embed1, nl_embed2,...]
-        # Hence, minibatch contains 2 partitions: 1. German embedding data, 2. Dutch embedding data
-        # For labels, a third partition is added which contains the data to confuse the discriminator. Hence,
-        # roughly 1/3 for each partition is used, hence the division of batch sizes.
-
-        inputs = torch.tensor(src_1_x[batch_idx * int(math.ceil(batch_size/3)): (batch_idx + 1) * int(math.ceil(batch_size/3))] +
-                              src_2_x[batch_idx * int(math.ceil(batch_size/3)): (batch_idx + 1) * int(math.ceil(batch_size/3))])
-
-        inputs_fake = torch.tensor(targt_x[batch_idx * int(math.ceil(batch_size/3)):
-                                           (batch_idx + 1) * int(math.ceil(batch_size/3))])
-
-        # First X elements are supposed to contain 0 for GAN generated vecs and 1 for vectors native to target space
-        labels = torch.cat((torch.zeros(inputs.shape[0]), torch.ones(inputs_fake.shape[0])), 0)
-
-        # Reset parameter gradients
-        optimizer.zero_grad()
-
-        # Forward, Backward, Optimize
-        outputs = gan(inputs, inputs_fake)               # Outputs: per batch element: [p(TP), p(FP)]
-        loss = gan.loss(outputs, labels)
-        loss.backward()
-        optimizer.step()
-
-        # Print statistics
-        running_loss += loss.item()
-        if i % 2000 == 1999:  # print every 2000 mini-batches
-            print('[%d, %5d] loss: %.3f' %
-                  (epoch + 1, batch_idx + 1, running_loss / 2000))
-            running_loss = 0.0
+    return vocabs
 
 
+### MAIN ###
 
-# TODO: Validate
+def main():
+    nr_src_langs = len(languages['src'])
+    nr_trgt_langs = 1
+    num_langs = nr_src_langs + nr_trgt_langs
+    real_label, fake_label = 1, 0
 
-# TODO: Store model
+    num_minibatches = vocab_size // batch_size
 
+    vocabs = {'src': {}, 'trgt': {}}
+
+    # Get source languages
+    for language in languages['src']:
+        vocabs = add_lang_to_vocab('src', language, vocab_size, vocabs)
+
+    # Get target language
+    language = languages['trgt']
+    vocabs = add_lang_to_vocab('trgt', language, vocab_size, vocabs)
+
+    print('Successfully loaded language models.')
+
+    # Get bilingual dictionary for evaluating train loss or at least testing
+    dicts = dict()
+    #TODO
+
+    # Set up model architecture
+    net = gan.GAN(embedding_dim, internal_dim, hidden, languages['src'])
+
+    # Get optimizers; 1 per source language and 1 for target language
+    optims_g = {}
+    for language in languages['src']:
+        params = net.generator.encoders[language].parameters() + net.generator.decoder.parameters()
+        optims_g[language] = torch.optim.Adam(params,
+                                              lr=0.001, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
+
+    optim_d = torch.optim.Adam(net.discriminator.parameters(),
+                               lr=0.001, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
+
+    # Train
+    train_loss, eval_loss = [], []
+
+    for epoch in range(epochs):
+        print('Epoch ', epoch, '/', epochs)
+
+        # Shuffle data #
+        # Source languages
+        for lang in languages['src']:
+            vocabs['src'][lang]['x'], vocabs['src'][lang]['y'] = shuffle(vocabs['src'][lang]['x'], vocabs['src'][lang]['y'])
+        # Target language
+        lang = languages['targt']
+        vocabs['trgt'][lang]['x'], vocabs['trgt'][lang]['y'] = shuffle(vocabs['trgt'][lang]['x'], vocabs['trgt'][lang]['y'])
+
+        # Train
+        for batch in range(num_minibatches):
+            print('Epoch ', epoch, ', Batch ', batch, '/', num_minibatches)
+
+            # Update discriminator #
+            # All-real minibatch
+            net.discriminator.zero_grad()
+            x = vocabs['trgt'][languages['targt']]['x'][batch * batch_size:(batch + 1) * batch_size].to(device)
+            y_true = torch.full((batch_size,), real_label, device=device)
+            y_pred = net.discriminator(x)
+            loss_real = net.loss(y_pred, y_true, 'dis')
+            loss_real.backward()
+
+            # One minibatch per source language
+            translations = {}
+            for language in languages['src']:
+                # All-real minibatch
+                net.discriminator.zero_grad()
+                x = vocabs['src'][language]['x'][batch * batch_size:(batch + 1) * batch_size].to(device)
+                x = net.generator(x, language)
+                translations[language] = x
+                y_true = torch.full((batch_size,), fake_label, device=device)
+                y_pred = net.discriminator(x.detach())      # Detach to avoid computing grads for generator
+                loss_fake = net.loss(y_pred, y_true, 'dis')
+                loss_fake.backward()    # Compute gradients only for discriminator
+            optim_d.step()              # Weight update
+            # TODO: keep track of loss development
+
+            # Update generator #
+            # Compute gradients
+            for language in languages['src']:
+                net.generator.encoders[language].zero_grad()
+                x = translations[language]
+                y_true = torch.full((batch_size,), fake_label, device=device)
+                y_pred = net.discriminator(x)
+                loss_fake = net.loss(y_pred, y_true, 'gen')
+                loss_fake.backward()
+
+            # TODO: possibly average decoder's gradients
+            # Perform weight updates
+            for language in languages['src']:
+                optims_g[language].step()
+
+        # TODO: Validate
+
+    # TODO: Store model
+
+if __name__ == "__main__":
+    # execute only if run as a script
+    main()
