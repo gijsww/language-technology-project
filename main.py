@@ -160,7 +160,10 @@ def main():
         train_loss_fake_g.append(loss_fake_g_total)
 
         # TODO: evaluation per epoch?
-
+        # TODO: evaluation could be measured by average cosine between predicted translations
+        print('Epoch {}/{}: dr-loss = {}, '
+              'df-loss = {}, gf-loss = {}'.format(epoch, epochs,
+                                                  train_loss_real_d, train_loss_fake_d, train_loss_fake_g))
     # TODO: Final evaluation
 
     # TODO: Store model
