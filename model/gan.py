@@ -22,27 +22,7 @@ class GAN(torch.nn.Module):
         raise Warning('Calling GAN DIRECTLY NOT IMPLEMENTED!')
         
         
-    def loss(self, y_pred, targets, net):
-        """
-            Loss function according to https://arxiv.org/pdf/1710.04087.pdf
-            
-        :param y_pred: Per minibatch element, probability distribution over TP (=1=word embedding native
-                       to target space) and FP (=0=word embedding produced by generator)
-        :param targets: Per minibatch element, binary indication of TP or FP wrt. to ground-truth
-        :param net: Loss to be computed for 'gen' vs 'dis'
-
-        :return: Loss for generator or discriminator
-        """
-
-        if net == 'dis':
-            # Loss proportional to discriminator's probability of correctly distinguishing TP and FP
-            print('if...')
-            loss = self.NLLLoss(torch.log(y_pred), targets)  # NLLLoss needs log(prob_distribution)
-        else:
-            # Loss proportional to discriminator's probability of confusing TP and FP
-            targets_inverse = torch.ones(list(targets.shape)[0]) - targets
-            loss = self.NLLLoss(torch.log(y_pred), targets_inverse)
-        return loss
+    
     
 
 class Generator(torch.nn.Module):
