@@ -53,6 +53,30 @@ def add_lang_to_vocab(lang_type, lang_id, vocab_size, vocabs):
 
     return vocabs
 
+def import_dictionary(dictionary_text):
+    dictionary = {}
+    source = True
+    source_word = ''
+    target_word = ''
+    for character in dictionary_text:
+        if source is True:
+            if character is '\t':
+                source = False
+            else:
+                source_word = source_word + character
+        else:
+            if character is '\n':
+                source = True
+                if source_word in dictionary:
+                    dictionary[source_word].append(target_word)
+                else:
+                    dictionary[source_word] = [target_word]
+                source_word = ''
+                target_word = ''
+            else:
+                target_word = target_word + character
+    return dictionary
+
 
 def compute_cosine(vector1, vector2):
     # Computes the cosine simularity between two vectors
@@ -76,6 +100,9 @@ def get_average_cosine(language, generator, source_word_vectors, target_vocab):
         translated_word_vector = get_translation(language, generator, word_vector, target_vocab)[0]
         sum_of_cosines += compute_cosine(word_vector, translated_word_vector)
     return sum_of_cosines/len(source_word_vectors)
+
+def get_translation_accuracy(language, generator, source_words, target_vocab, dictionary):
+    # Compute the accuracy of translation over the given set of source words
 
 ### MAIN ###
 
