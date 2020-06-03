@@ -14,6 +14,8 @@ class GAN(torch.nn.Module):
         self.discriminator = Discriminator(embedding_dim, internal_dim, hidden)
         
         self.NLLLoss = torch.nn.NLLLoss()
+
+        print('Gan')
         
         
     def forward(self, x):
@@ -34,6 +36,7 @@ class GAN(torch.nn.Module):
 
         if net == 'dis':
             # Loss proportional to discriminator's probability of correctly distinguishing TP and FP
+            print('if...')
             loss = self.NLLLoss(torch.log(y_pred), targets)  # NLLLoss needs log(prob_distribution)
         else:
             # Loss proportional to discriminator's probability of confusing TP and FP
