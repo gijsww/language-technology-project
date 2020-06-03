@@ -2,6 +2,8 @@ import fasttext
 import fasttext.util
 import torch
 import math
+import random
+import numpy as np
 from model import gan
 from sklearn.utils import shuffle
 
@@ -51,6 +53,29 @@ def add_lang_to_vocab(lang_type, lang_id, vocab_size, vocabs):
 
     return vocabs
 
+
+def compute_cosine(vector1, vector2):
+    # Computes the cosine simularity between two vectors
+    dot_pruduct = np.dot(vector1, vector2)
+    norm_vector1 = np.linalg.norm(vector1)
+    norm_vector2 = np.linalg.norm(vector2)
+    return dot_pruduct/(norm_vector1*norm_vector2)
+
+
+def get_translation(language, generator, source_embedding, target_vocab):
+    # Returns a random translation now, but will return the translation based on
+    # the nearest neighbor as given by cosine simularity
+    random_word_index = random.randint(0, len(target_vocab['x']-1))
+    return target_vocab['x'][random_word_index], target_vocab['y'][random_word_index]
+
+
+def get_average_cosine(language, generator, source_word_vectors, target_vocab):
+    # Computes the average cosine simularity between the source words and their translations
+    sum_of_cosines = 0
+    for word_vector in source_word_vectors:
+        translated_word_vector = get_translation(language, generator, word_vector, target_vocab)[0]
+        sum_of_cosines += compute_cosine(word_vector, translated_word_vector)
+    return sum_of_cosines/len(source_word_vectors)
 
 ### MAIN ###
 
@@ -161,6 +186,7 @@ def main():
 
         # TODO: evaluation per epoch?
         # TODO: evaluation could be measured by average cosine between predicted translations
+
         print('Epoch {}/{}: dr-loss = {}, '
               'df-loss = {}, gf-loss = {}'.format(epoch, epochs,
                                                   train_loss_real_d, train_loss_fake_d, train_loss_fake_g))
