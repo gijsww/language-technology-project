@@ -53,6 +53,7 @@ def add_lang_to_vocab(lang_type, lang_id, vocab_size, vocabs):
 
     return vocabs
 
+
 def import_dictionary(dictionary_text):
     dictionary = {}
     source = True
@@ -80,29 +81,36 @@ def import_dictionary(dictionary_text):
 
 def compute_cosine(vector1, vector2):
     # Computes the cosine simularity between two vectors
-    dot_pruduct = np.dot(vector1, vector2)
+    dot_product = np.dot(vector1, vector2)
     norm_vector1 = np.linalg.norm(vector1)
     norm_vector2 = np.linalg.norm(vector2)
-    return dot_pruduct/(norm_vector1*norm_vector2)
+    return dot_product/(norm_vector1*norm_vector2)
 
 
-def get_translation(language, generator, source_embedding, target_vocab):
+def get_translation(generator, source_embedding, target_model):
     # Returns a random translation now, but will return the translation based on
     # the nearest neighbor as given by cosine simularity
-    random_word_index = random.randint(0, len(target_vocab['x']-1))
-    return target_vocab['x'][random_word_index], target_vocab['y'][random_word_index]
+    return 'nothing'
 
 
-def get_average_cosine(language, generator, source_word_vectors, target_vocab):
+def get_average_cosine(generator, source_word_vectors, target_model):
     # Computes the average cosine simularity between the source words and their translations
     sum_of_cosines = 0
     for word_vector in source_word_vectors:
-        translated_word_vector = get_translation(language, generator, word_vector, target_vocab)[0]
+        translated_word_vector = get_translation(generator, word_vector, target_model)[0]
         sum_of_cosines += compute_cosine(word_vector, translated_word_vector)
     return sum_of_cosines/len(source_word_vectors)
 
-def get_translation_accuracy(language, generator, source_words, target_vocab, dictionary):
+def get_translation_accuracy(generator, source_words, source_model, target_model, dictionary):
     # Compute the accuracy of translation over the given set of source words
+    correct_translations = 0
+    for source_word in source_words:
+        source_word_vector = source_model.get_word_vector(source_word)
+        target_word = get_translation(generator, source_word_vector, target_model)
+        if target_word in dictionary[source_word]:
+            correct_translations += 1
+    return correct_translations/len(source_words)
+
 
 ### MAIN ###
 
