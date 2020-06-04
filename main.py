@@ -6,6 +6,7 @@ import random
 import numpy as np
 from model import gan
 from sklearn.utils import shuffle
+from sklearn.neighbors import NearestNeighbors
 
 print(torch.version.__version__)
 
@@ -13,6 +14,7 @@ print(torch.version.__version__)
 
 # System
 dataset_path = '/media/daniel/Elements/FastText_Data/'  # In case dataset is stored somewhere else, e.g. on hard-drive
+dictionary_path = ''  # In case dictionaries are stored somewhere else
 use_cuda = torch.cuda.is_available()
 device = torch.device("cuda:0" if use_cuda else "cpu")
 
@@ -27,8 +29,17 @@ batch_size = 32
 vocab_size = 2000
 languages = {'src': ['de', 'nl'], 'trgt': 'en'}  # Target language to be indicated in last position
 
+#testing parameters
+N = [1] # List of n nearest neighbours that will be performed in evaluation
 
 ### FUNCTIONS ###
+
+def full_vocab(vocab):
+    # Returns the word embeddings and matching labels for the full vocabulary
+    words = vocab.words
+    vectors = [vocab[word] for word in words]
+    return vectors, words
+
 
 def cleaned_vocab(vocab, vocab_size):
     # Remove all punctuation tokens while valid nr of tokens is insufficient yet for having full vocab size
@@ -41,27 +52,30 @@ def cleaned_vocab(vocab, vocab_size):
     return vects, words
 
 
-def add_lang_to_vocab(lang_type, lang_id, vocab_size, vocabs):
+def add_lang_to_vocab(lang_type, lang_id, vocab_size, vocabs, full_vocabs):
     # Get dataset
     if dataset_path == './':
         fasttext.util.download_model(lang_id)  # Download word embedding vector data if not available
     vocab = fasttext.load_model(dataset_path + 'cc.' + lang_id + '.300.bin')  # Load language data
 
     # Add train data (embedding-vectors) and labels (words) to vocab
+    X, Y = full_vocab(vocab)
     x, y = cleaned_vocab(vocab, vocab_size)
     vocabs[lang_type][lang_id] = {'x': torch.tensor(x), 'y': y}
+    full_vocabs[lang_type][lang_id] = {'X': X, 'y': Y}
 
-    return vocabs
+    return vocabs, full_vocabs
 
 
-def import_dictionary(dictionary_text):
+def convert_dictionary(dictionary_text):
+    # Converts an input dictionary text file to a python dictionary
     dictionary = {}
     source = True
     source_word = ''
     target_word = ''
     for character in dictionary_text:
         if source is True:
-            if character is '\t':
+            if character is '\t' or character is ' ':
                 source = False
             else:
                 source_word = source_word + character
@@ -87,28 +101,45 @@ def compute_cosine(vector1, vector2):
     return dot_product/(norm_vector1*norm_vector2)
 
 
-def get_translation(generator, source_embedding, target_model):
-    # Returns a random translation now, but will return the translation based on
-    # the nearest neighbor as given by cosine simularity
-    return 'nothing'
+def get_n_translations(generator, language, source_vector, target_vocab, neighbors):
+    # Gets n possible translations, as given by the n nearest neighbors of the transformed
+    # source vector in the target embeddings space, we will use a package for this for optimization
+    # purposes. n is given in the nearest neighbor fitting stage.
+    transformed_source_embedding = generator.forward(source_vector, language)
+
+    # only takes 2D arrays, hence the extra bracket [1][0] stands for select indices of
+    # the first input vector (the only one in this case)
+    vocab_indices = neighbors(np.array([transformed_source_embedding]))[1][0]
+
+    target_vectors = []
+    target_words = []
+    for index in vocab_indices:
+        target_vectors.append(target_vocab['X'][index])
+        target_words.append(target_vocab['Y'][index])
+
+    return target_vectors, target_words
 
 
-def get_average_cosine(generator, source_word_vectors, target_model):
+def get_average_cosine(generator, language, source_word_vectors, target_vocab, neighbors):
     # Computes the average cosine simularity between the source words and their translations
     sum_of_cosines = 0
-    for word_vector in source_word_vectors:
-        translated_word_vector = get_translation(generator, word_vector, target_model)[0]
-        sum_of_cosines += compute_cosine(word_vector, translated_word_vector)
+    for source_word_vector in source_word_vectors:
+        translated_word_vector = get_n_translations(generator, language, source_word_vector, target_vocab, neighbors)[0][0]
+        sum_of_cosines += compute_cosine(source_word_vector, translated_word_vector)
     return sum_of_cosines/len(source_word_vectors)
 
-def get_translation_accuracy(generator, source_words, source_model, target_model, dictionary):
+
+def get_translation_accuracy(generator, language, source_words, source_vocab, target_vocab, dictionary, n, neighbors):
     # Compute the accuracy of translation over the given set of source words
     correct_translations = 0
     for source_word in source_words:
-        source_word_vector = source_model.get_word_vector(source_word)
-        target_word = get_translation(generator, source_word_vector, target_model)
-        if target_word in dictionary[source_word]:
-            correct_translations += 1
+        source_word_index = source_vocab['Y'].index(source_word)
+        source_word_vector = source_vocab['X'][source_word_index]
+        n_target_words = get_n_translations(generator, language, source_word_vector, target_vocab, neighbors)[1]
+        for target_word in n_target_words:
+            if target_word in dictionary[source_word]:
+                correct_translations += 1
+                break
     return correct_translations/len(source_words)
 
 
@@ -121,20 +152,33 @@ def main():
     num_minibatches = vocab_size // batch_size
 
     vocabs = {'src': {}, 'trgt': {}}
+    full_vocabs = {'src': {}, 'trgt': {}}
 
     # Get source languages vocab
     for language in languages['src']:
-        vocabs = add_lang_to_vocab('src', language, vocab_size, vocabs)
+        vocabs, full_vocabs = add_lang_to_vocab('src', language, vocab_size, vocabs, full_vocabs)
 
     # Get target language vocab
     language = languages['trgt']
-    vocabs = add_lang_to_vocab('trgt', language, vocab_size, vocabs)
+    vocabs, full_vocabs = add_lang_to_vocab('trgt', language, vocab_size, vocabs, full_vocabs)
 
     print('Successfully loaded language models.')
 
     # Get bilingual dictionary for evaluating train loss or at least testing
-    dicts = dict()
-    #TODO
+
+    dictionaries = {}
+
+    for source_language in languages['src']:
+        file = open(dictionary_path + language + '-' + languages['trgt'] + '.txt', 'r')
+        dictionary_text = file.read()
+        dictionaries[source_language] = convert_dictionary(dictionary_text)
+
+    # Set up nearest neighbours for target embedding space, will be used in evaluation and testing also.
+    # alghorithm type might need to be adjusted, but will be teh default 'auto' for now. Will do this
+    # for all N included
+    target_neighbours = {}
+    for n in N:
+        target_neighbours[n] = NearestNeighbors(n_neighbors=n, metric='cosine').fit(full_vocabs['trgt']['X'])
 
     # Set up model architecture
     net = gan.GAN(embedding_dim, internal_dim, hidden, languages['src'])
