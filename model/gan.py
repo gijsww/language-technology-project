@@ -14,15 +14,11 @@ class GAN(torch.nn.Module):
         self.discriminator = Discriminator(embedding_dim, internal_dim, hidden)
         
         self.NLLLoss = torch.nn.NLLLoss()
-
-        print('Gan')
         
         
     def forward(self, x):
         raise Warning('Calling GAN DIRECTLY NOT IMPLEMENTED!')
         
-        
-    
     
 
 class Generator(torch.nn.Module):
