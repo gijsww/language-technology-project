@@ -53,8 +53,9 @@ class Generator(torch.nn.Module):
         
 class Discriminator(torch.nn.Module):
 
-    def __init__(self, D_in, H, D_out=2):
+    def __init__(self, D_in, H, D_out):
         super(Discriminator, self).__init__()
+        D_out = 2 #set manually to 2 to force output dim
         self.w1 = torch.nn.Linear(D_in, H)
         self.w2 = torch.nn.Linear(H, D_out)
         self.activation = torch.nn.functional.relu
