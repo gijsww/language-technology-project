@@ -4,14 +4,11 @@ from model import encoder, decoder
 
 class GAN(torch.nn.Module):
 
-    def __init__(self, D_in, H, D_out, src_languages):
+    def __init__(self, D_in, H, D_out=2, src_languages):
         super(GAN, self).__init__()
-        embedding_dim = D_in
-        internal_dim = H
-        hidden = D_out
         
-        self.generator = Generator(embedding_dim, hidden, internal_dim, src_languages)
-        self.discriminator = Discriminator(embedding_dim, internal_dim, hidden)
+        self.generator = Generator(D_in=D_in, H=H, D_out=D_in, languages=src_languages)
+        self.discriminator = Discriminator(D_in=D_in, H=H, D_out=D_out)
         
         self.NLLLoss = torch.nn.NLLLoss()
         
@@ -25,18 +22,15 @@ class Generator(torch.nn.Module):
 
     def __init__(self, D_in, H, D_out, languages):
         super(Generator, self).__init__()
-        self.D_out = D_out
         
-        embedding_dim = D_in
-        internal_dim = H
-        hidden = D_out
+        internal_dim = H  # Does not necessarily need to coincide
 
         self.encoders = {}
         for language in languages:
-            self.encoders[language] = encoder.FeedForwardEncoder(embedding_dim, hidden, internal_dim)
+            self.encoders[language] = encoder.FeedForwardEncoder(D_in=D_in, H=H, D_out=internal_dim)
         
         # Decoder
-        self.decoder = decoder.FeedForwardDecoder(internal_dim, hidden, embedding_dim)
+        self.decoder = decoder.FeedForwardDecoder(D_in=internal_dim, H=H, D_out=D_out)
         
         
     def forward(self, x, batch_language):
@@ -53,9 +47,8 @@ class Generator(torch.nn.Module):
         
 class Discriminator(torch.nn.Module):
 
-    def __init__(self, D_in, H, D_out):
+    def __init__(self, D_in, H, D_out=2):
         super(Discriminator, self).__init__()
-        D_out = 2 #set manually to 2 to force output dim
         self.w1 = torch.nn.Linear(D_in, H)
         self.w2 = torch.nn.Linear(H, D_out)
         self.activation = torch.nn.functional.relu
