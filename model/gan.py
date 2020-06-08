@@ -48,7 +48,9 @@ class Discriminator(torch.nn.Module):
     def __init__(self, D_in, H, D_out):
         super(Discriminator, self).__init__()
         self.w1 = torch.nn.Linear(D_in, H)
-        self.w2 = torch.nn.Linear(H, D_out)
+        self.w2 = torch.nn.Linear(H, H)
+        self.w3 = torch.nn.Linear(H, H)
+        self.w4 = torch.nn.Linear(H, D_out)
         self.activation = torch.nn.functional.relu
         self.softmax = torch.nn.Softmax(dim=1)  # Take SM along dimension=1, whereas dim=0 == Batch-size
         
@@ -57,6 +59,10 @@ class Discriminator(torch.nn.Module):
         x = self.w1(x)
         x = self.activation(x)
         x = self.w2(x)
+        x = self.activation(x)
+        x = self.w3(x)
+        x = self.activation(x)
+        x = self.w4(x)
         x = self.softmax(x)      # Create probability distribution over embedding being TP or FP
         return x
 
