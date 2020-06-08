@@ -10,8 +10,6 @@ class GAN(torch.nn.Module):
         self.generator = Generator(D_in=D_in, H=H, D_out=D_in, languages=src_languages)
         self.discriminator = Discriminator(D_in=D_in, H=H, D_out=D_out)
         
-        self.NLLLoss = torch.nn.NLLLoss()
-        
         
     def forward(self, x):
         raise Warning('Calling GAN DIRECTLY NOT IMPLEMENTED!')
