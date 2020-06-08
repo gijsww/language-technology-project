@@ -4,7 +4,7 @@ from model import encoder, decoder
 
 class GAN(torch.nn.Module):
 
-    def __init__(self, D_in, H, D_out=2, src_languages):
+    def __init__(self, D_in, H, D_out, src_languages):
         super(GAN, self).__init__()
         
         self.generator = Generator(D_in=D_in, H=H, D_out=D_in, languages=src_languages)
@@ -47,7 +47,7 @@ class Generator(torch.nn.Module):
         
 class Discriminator(torch.nn.Module):
 
-    def __init__(self, D_in, H, D_out=2):
+    def __init__(self, D_in, H, D_out):
         super(Discriminator, self).__init__()
         self.w1 = torch.nn.Linear(D_in, H)
         self.w2 = torch.nn.Linear(H, D_out)
