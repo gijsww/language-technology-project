@@ -8,7 +8,7 @@ class GAN(torch.nn.Module):
         super(GAN, self).__init__()
         
         self.generator = Generator(D_in=D_in, H=H, D_out=D_in, languages=src_languages)
-        self.discriminator = Discriminator(D_in=D_in, H=H, D_out=D_out)
+        self.discriminator = Discriminator(D_in=D_in, D_out=D_out)
         
         
     def forward(self, x):
@@ -45,11 +45,10 @@ class Generator(torch.nn.Module):
         
 class Discriminator(torch.nn.Module):
 
-    def __init__(self, D_in, H, D_out):
+    def __init__(self, D_in=300, H=2048, D_out=1):
         super(Discriminator, self).__init__()
         self.w1 = torch.nn.Linear(D_in, H)
-        self.w2 = torch.nn.Linear(H, H)
-        self.w3 = torch.nn.Linear(H, D_out)
+        self.w2 = torch.nn.Linear(H, D_out)
         self.activation = torch.nn.functional.relu
         #self.softmax = torch.nn.Softmax(dim=1)  # Take SM along dimension=1, whereas dim=0 == Batch-size
         self.sigmoid = torch.nn.Sigmoid()
@@ -59,8 +58,6 @@ class Discriminator(torch.nn.Module):
         x = self.w1(x)
         x = self.activation(x)
         x = self.w2(x)
-        x = self.activation(x)
-        x = self.w3(x)
         x = self.sigmoid(x)
         return x
 
