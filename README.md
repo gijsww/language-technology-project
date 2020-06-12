@@ -10,7 +10,7 @@ Ensure you have installed all the dependencies listed below.
 
 # Steps to run the main code
 Follow these steps to run the code.
-1. access the following branch: LINK
+1. access the following branch: https://github.com/gijsww/language-technology-project/tree/jupyter-development
 2. clone or download the branch
 3. open the main.ipynb file with Jupyter Notebook
 4. run all the cells in the notebook
