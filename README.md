@@ -18,5 +18,5 @@ Follow these steps to run the code.
 # Other code
 in addition to our main code, we also developed more systems.
 1. Proof of concepts https://github.com/gijsww/language-technology-project/tree/proof_of_concepts. Here we demonstrate with toy data that our main implementation does in fact seem to work.
-2. Our main code with add Auto Encoder https://github.com/gijsww/language-technology-project/tree/jupyter-development-ae
+2. Our main code with added Auto Encoder https://github.com/gijsww/language-technology-project/tree/jupyter-development-ae
 3. Conneau https://github.com/gijsww/language-technology-project/tree/jupyter-connea-version. This branch is almost a direct implementation of the existing Conneau et al., code https://github.com/facebookresearch/MUSE. On the data of our main implementation, we yield similar results to our own code.
